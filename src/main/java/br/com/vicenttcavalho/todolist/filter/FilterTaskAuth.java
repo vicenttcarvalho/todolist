@@ -31,38 +31,33 @@ public class FilterTaskAuth extends OncePerRequestFilter {
       // Pegar autenticação (usuario e senha)
       var authorization = request.getHeader("Authorization");
 
-      if (authorization != null && authorization.startsWith("Basic ")) {
-        var authEncoded = authorization.substring("Basic".length()).trim();
-        byte[] authDecode = Base64.getDecoder().decode(authEncoded);
-        var authString = new String(authDecode);
+      var authEncoded = authorization.substring("Basic".length()).trim();
 
-        String[] credentials = authString.split(":");
-        String username = credentials[0];
-        String password = credentials[1];
+      byte[] authDecode = Base64.getDecoder().decode(authEncoded);
 
-        // Validar usuário
-        var user = this.userRepository.findByUsername(username);
-        if (user == null) {
-          response.sendError(401);
-          return;
-        }
+      var authString = new String(authDecode);
 
-        // Validar senha
-        var passwordVerify = BCrypt.verifyer().verify(password.toCharArray(), user.getPassword());
-        if (!passwordVerify.verified) {
-          response.sendError(401);
-          return;
-        }
-      } else {
-        // Se não houver cabeçalho de autenticação ou não começar com "Basic", retorne
-        // 401 Unauthorized
+      String[] credentials = authString.split(":");
+      String username = credentials[0];
+      String password = credentials[1];
+
+      // Validar usuário
+      var user = this.userRepository.findByUsername(username);
+      if (user == null) {
         response.sendError(401);
-        return;
+      } else {
+        // validar senha
+        var passwordVerify = BCrypt.verifyer().verify(password.toCharArray(), user.getPassword());
+        if (passwordVerify.verified) {
+          filterChain.doFilter(request, response);
+        } else {
+          response.sendError(401);
+        }
       }
+    } else {
+      filterChain.doFilter(request, response);
     }
 
-    // Se a autenticação foi bem-sucedida ou se a URL não é "/tasks/", continue com
-    // a cadeia de filtros
-    filterChain.doFilter(request, response);
   }
+
 }
